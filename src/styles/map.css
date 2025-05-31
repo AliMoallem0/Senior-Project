@@ -1,0 +1,72 @@
+/* Map Styles */
+.map-dark {
+  filter: invert(90%) hue-rotate(180deg);
+}
+
+.map-dark img {
+  filter: invert(100%) hue-rotate(180deg);
+}
+
+/* Performance Optimizations */
+.leaflet-tile {
+  will-change: transform;
+  contain: paint;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+  will-change: transform;
+}
+
+/* Custom Popup Styles */
+.leaflet-popup-content {
+  font-family: system-ui, -apple-system, sans-serif;
+  padding: 8px;
+}
+
+.leaflet-popup-content .font-bold {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+/* Loading States */
+.map-loading {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(255, 255, 255, 0.9);
+  padding: 1rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 640px) {
+  .leaflet-control-layers,
+  .leaflet-control-zoom {
+    font-size: 14px;
+  }
+  
+  .leaflet-popup-content {
+    font-size: 14px;
+  }
+}
+
+/* Smooth Transitions */
+.leaflet-fade-anim .leaflet-tile,
+.leaflet-fade-anim .leaflet-popup {
+  opacity: 0;
+  transition: opacity 0.2s linear;
+}
+
+.leaflet-fade-anim .leaflet-tile-loaded,
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+  opacity: 1;
+}
+
+/* Cache Control */
+.leaflet-tile-container {
+  will-change: transform;
+  backface-visibility: hidden;
+} 

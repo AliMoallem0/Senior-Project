@@ -1,0 +1,736 @@
+import { toast } from "@/components/ui/use-toast";
+
+// API keys for traffic services
+export const TOMTOM_API_KEY = 'NyZAxGq694j1vqAnZAHriQmElnsG94IC';
+
+// Set this to true to use Google Maps API instead of TomTom
+export const USE_GOOGLE_MAPS_API = true;
+
+// Get Google Maps API key from environment variables
+export const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+// Check if API keys are valid
+if (!TOMTOM_API_KEY) {
+  console.error('TomTom API key is not configured');
+  toast({
+    title: "Configuration Error",
+    description: "TomTom API key is not configured. Traffic data may not be available.",
+    variant: "destructive"
+  });
+}
+
+if (USE_GOOGLE_MAPS_API && !GOOGLE_MAPS_API_KEY) {
+  console.error('Google Maps API key is not configured, but USE_GOOGLE_MAPS_API is true');
+  console.warn('Falling back to TomTom API');
+}
+
+/**
+ * Helper function to fetch data with proper headers
+ */
+const fetchWithHeaders = async (url: string) => {
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    if (!response.ok) {
+      throw new Error(`Network response was not ok: ${response.status}`);
+    }
+    return await response.json();
+  } catch (error) {
+    console.error('Fetch error:', error);
+    return null;
+  }
+};
+
+// TomTom API endpoints
+const API_BASE_URL = 'https://api.tomtom.com/traffic';
+const API_VERSION = '4';
+
+/**
+ * Main function to get traffic data - selects between Google Maps and TomTom APIs
+ */
+export const getTrafficData = async (cityName: string): Promise<TrafficData> => {
+  console.log(`Getting traffic data for ${cityName} using ${USE_GOOGLE_MAPS_API ? 'Google Maps API' : 'TomTom API'}`);
+  
+  if (USE_GOOGLE_MAPS_API && GOOGLE_MAPS_API_KEY) {
+    try {
+      return await getGoogleTrafficData(cityName);
+    } catch (error) {
+      console.error('Google Maps API failed, falling back to TomTom:', error);
+      return getTomTomTrafficData(cityName);
+    }
+  } else {
+    return getTomTomTrafficData(cityName);
+  }
+};
+
+// TomTom API endpoints
+const API_BASE_URL = 'https://api.tomtom.com/traffic';
+const API_VERSION = '4';
+
+export const TOMTOM_ENDPOINTS = {
+  flowSegment: (lat: number, lon: number) => 
+    `${API_BASE_URL}/services/${API_VERSION}/flowSegmentData/relative/10/json?key=${TOMTOM_API_KEY}&point=${lat},${lon}`,
+  incidents: (lat: number, lon: number) =>
+    `${API_BASE_URL}/services/${API_VERSION}/incidentDetails/s3/${lat},${lon}/10.json?key=${TOMTOM_API_KEY}`,
+  trafficFlow: (z: string | number, x: string | number, y: string | number) =>
+    `${API_BASE_URL}/map/${API_VERSION}/tile/flow/absolute/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&style=relative&tileSize=256`,
+  trafficIncidents: (z: string | number, x: string | number, y: string | number) =>
+    `${API_BASE_URL}/map/${API_VERSION}/tile/incidents/s3/${z}/${x}/${y}.png?key=${TOMTOM_API_KEY}&tileSize=256`
+};
+
+// Define Dubai's major hotspots
+export const DUBAI_HOTSPOTS = [
+  {
+    id: 1,
+    name: "Sheikh Zayed Road",
+    coordinates: { lat: 25.2048, lon: 55.2708 }
+  },
+  {
+    id: 2,
+    name: "Dubai Mall",
+    coordinates: { lat: 25.1972, lon: 55.2744 }
+  },
+  {
+    id: 3,
+    name: "Palm Jumeirah",
+    coordinates: { lat: 25.1124, lon: 55.1390 }
+  },
+  {
+    id: 4,
+    name: "Dubai Marina",
+    coordinates: { lat: 25.0805, lon: 55.1403 }
+  },
+  {
+    id: 5,
+    name: "Burj Khalifa Boulevard",
+    coordinates: { lat: 25.1916, lon: 55.2764 }
+  },
+  {
+    id: 6,
+    name: "Al Khail Road",
+    coordinates: { lat: 25.1551, lon: 55.2640 }
+  },
+  {
+    id: 7,
+    name: "Deira City Centre",
+    coordinates: { lat: 25.2532, lon: 55.3311 }
+  },
+  {
+    id: 8,
+    name: "Business Bay",
+    coordinates: { lat: 25.1865, lon: 55.2806 }
+  }
+];
+
+// Define New York City's major hotspots
+export const NEW_YORK_HOTSPOTS = [
+  {
+    id: 1,
+    name: "Times Square",
+    coordinates: { lat: 40.7580, lon: -73.9855 }
+  },
+  {
+    id: 2,
+    name: "Central Park Area",
+    coordinates: { lat: 40.7851, lon: -73.9683 }
+  },
+  {
+    id: 3,
+    name: "Financial District",
+    coordinates: { lat: 40.7075, lon: -74.0113 }
+  },
+  {
+    id: 4,
+    name: "Brooklyn Bridge",
+    coordinates: { lat: 40.7061, lon: -73.9969 }
+  },
+  {
+    id: 5,
+    name: "Lincoln Tunnel",
+    coordinates: { lat: 40.7588, lon: -74.0111 }
+  },
+  {
+    id: 6,
+    name: "Grand Central Terminal",
+    coordinates: { lat: 40.7527, lon: -73.9772 }
+  },
+  {
+    id: 7,
+    name: "Queens-Midtown Tunnel",
+    coordinates: { lat: 40.7469, lon: -73.9642 }
+  },
+  {
+    id: 8,
+    name: "Holland Tunnel",
+    coordinates: { lat: 40.7267, lon: -74.0200 }
+  }
+];
+
+// Define London major hotspots
+export const LONDON_HOTSPOTS = [
+  { id: 1, name: "Oxford Circus", coordinates: { lat: 51.5154, lon: -0.1410 } },
+  { id: 2, name: "Piccadilly Circus", coordinates: { lat: 51.5101, lon: -0.1340 } },
+  { id: 3, name: "London Bridge", coordinates: { lat: 51.5079, lon: -0.0877 } },
+  { id: 4, name: "Canary Wharf", coordinates: { lat: 51.5054, lon: -0.0235 } },
+  { id: 5, name: "Trafalgar Square", coordinates: { lat: 51.5080, lon: -0.1281 } },
+  { id: 6, name: "Tower Bridge", coordinates: { lat: 51.5055, lon: -0.0754 } },
+  { id: 7, name: "Waterloo Station", coordinates: { lat: 51.5031, lon: -0.1132 } },
+  { id: 8, name: "Hyde Park Corner", coordinates: { lat: 51.5027, lon: -0.1527 } },
+];
+
+// Define Tokyo major hotspots
+export const TOKYO_HOTSPOTS = [
+  { id: 1, name: "Shibuya Crossing", coordinates: { lat: 35.6595, lon: 139.7005 } },
+  { id: 2, name: "Shinjuku Station", coordinates: { lat: 35.6900, lon: 139.7004 } },
+  { id: 3, name: "Tokyo Tower", coordinates: { lat: 35.6586, lon: 139.7454 } },
+  { id: 4, name: "Akihabara", coordinates: { lat: 35.6984, lon: 139.7730 } },
+  { id: 5, name: "Tokyo Station", coordinates: { lat: 35.6812, lon: 139.7671 } },
+  { id: 6, name: "Roppongi", coordinates: { lat: 35.6628, lon: 139.7320 } },
+  { id: 7, name: "Ueno Station", coordinates: { lat: 35.7141, lon: 139.7774 } },
+  { id: 8, name: "Ikebukuro", coordinates: { lat: 35.7295, lon: 139.7109 } },
+];
+
+// Define Singapore major hotspots
+export const SINGAPORE_HOTSPOTS = [
+  { id: 1, name: "Orchard Road", coordinates: { lat: 1.3048, lon: 103.8318 } },
+  { id: 2, name: "Marina Bay Sands", coordinates: { lat: 1.2834, lon: 103.8607 } },
+  { id: 3, name: "Changi Airport", coordinates: { lat: 1.3644, lon: 103.9915 } },
+  { id: 4, name: "Sentosa", coordinates: { lat: 1.2494, lon: 103.8303 } },
+  { id: 5, name: "Chinatown", coordinates: { lat: 1.2815, lon: 103.8444 } },
+  { id: 6, name: "Bugis", coordinates: { lat: 1.3009, lon: 103.8559 } },
+  { id: 7, name: "Jurong East", coordinates: { lat: 1.3329, lon: 103.7436 } },
+  { id: 8, name: "Tampines", coordinates: { lat: 1.3539, lon: 103.9336 } },
+];
+
+// Define Barcelona major hotspots
+export const BARCELONA_HOTSPOTS = [
+  { id: 1, name: "La Rambla", coordinates: { lat: 41.3809, lon: 2.1735 } },
+  { id: 2, name: "Plaça de Catalunya", coordinates: { lat: 41.3870, lon: 2.1701 } },
+  { id: 3, name: "Sagrada Família", coordinates: { lat: 41.4036, lon: 2.1744 } },
+  { id: 4, name: "Barceloneta Beach", coordinates: { lat: 41.3809, lon: 2.1920 } },
+];
+
+// Define Sydney major hotspots
+export const SYDNEY_HOTSPOTS = [
+  { id: 1, name: "Sydney Opera House", coordinates: { lat: -33.8568, lon: 151.2153 } },
+  { id: 2, name: "Harbour Bridge", coordinates: { lat: -33.8523, lon: 151.2108 } },
+  { id: 3, name: "Bondi Beach", coordinates: { lat: -33.8908, lon: 151.2743 } },
+  { id: 4, name: "Darling Harbour", coordinates: { lat: -33.8748, lon: 151.1987 } },
+];
+
+// Define San Francisco major hotspots
+export const SANFRANCISCO_HOTSPOTS = [
+  { id: 1, name: "Golden Gate Bridge", coordinates: { lat: 37.8199, lon: -122.4783 } },
+  { id: 2, name: "Market Street", coordinates: { lat: 37.7749, lon: -122.4194 } },
+  { id: 3, name: "Union Square", coordinates: { lat: 37.7879, lon: -122.4074 } },
+  { id: 4, name: "Fisherman's Wharf", coordinates: { lat: 37.8080, lon: -122.4177 } },
+];
+
+// WebSocket connection for real-time updates
+export class TrafficWebSocket {
+  private ws: WebSocket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private onUpdateCallback: ((data: TrafficData) => void) | null = null;
+  private pollingInterval: NodeJS.Timeout | null = null;
+
+  constructor(cityName: string) {
+    this.initializeWebSocket(cityName);
+  }
+
+  private async initializeWebSocket(cityName: string) {
+    try {
+      // Since TomTom doesn't provide a WebSocket API, we'll use polling
+      this.setupPolling(cityName);
+    } catch (error) {
+      console.error('Error initializing traffic updates:', error);
+      this.fallbackToPolling(cityName);
+    }
+  }
+
+  private setupPolling(cityName: string) {
+    // Poll every 30 seconds
+    this.pollingInterval = setInterval(async () => {
+      try {
+        const data = await getTrafficData(cityName);
+        if (data && this.onUpdateCallback) {
+          this.onUpdateCallback(data);
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 30000); // 30 seconds interval
+  }
+
+  private fallbackToPolling(cityName: string) {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+    }
+    this.setupPolling(cityName);
+  }
+
+  public onUpdate(callback: (data: TrafficData) => void) {
+    this.onUpdateCallback = callback;
+  }
+
+  public disconnect() {
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+  }
+}
+
+const fetchWithHeaders = async (url: string) => {
+  try {
+    console.log('Fetching URL:', url);
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    
+    const text = await response.text();
+    console.log('Raw API Response:', text);
+    
+    if (!response.ok) {
+      console.error('API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        response: text
+      });
+      throw new Error(`API call failed with status ${response.status}: ${response.statusText}`);
+    }
+    
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error('JSON Parse Error:', e);
+      throw new Error('Failed to parse API response');
+    }
+  } catch (error: any) {
+    console.error('Fetch error:', error);
+    throw error;
+  }
+};
+
+export interface TrafficIncident {
+  id: string;
+  type: string;
+  roadNumbers?: string[];
+  from?: string;
+  to?: string;
+  description?: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+export interface TrafficData {
+  congestion: number;
+  delay: number;
+  freeFlowSpeed: number;
+  currentSpeed: number;
+  roadClosures: number;
+  incidents: number;
+  lastUpdated: string;
+  hotspots: {
+    id: number;
+    name: string;
+    congestion: number | null;
+    currentSpeed: number | null;
+    freeFlowSpeed: number | null;
+    delay: number | null;
+    coordinates: { lat: number; lon: number };
+  }[];
+  incidentDetails?: TrafficIncident[];
+}
+
+const mockData: TrafficData = {
+  congestion: 50,
+  delay: 300,
+  freeFlowSpeed: 60,
+  currentSpeed: 30,
+  roadClosures: 0,
+  incidents: 2,
+  lastUpdated: new Date().toISOString(),
+  hotspots: DUBAI_HOTSPOTS.map(hotspot => ({
+    id: hotspot.id,
+    name: hotspot.name,
+    congestion: 65,
+    currentSpeed: 30,
+    freeFlowSpeed: 60,
+    delay: 300,
+    coordinates: hotspot.coordinates
+  })),
+  incidentDetails: []
+};
+
+/**
+ * Helper function to get city hotspots
+ */
+const getCityHotspots = (cityName: string) => {
+  let hotspots = DUBAI_HOTSPOTS;
+  if (cityName.toLowerCase().includes('new york')) {
+    hotspots = NEW_YORK_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('london')) {
+    hotspots = LONDON_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('tokyo')) {
+    hotspots = TOKYO_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('singapore')) {
+    hotspots = SINGAPORE_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('barcelona')) {
+    hotspots = BARCELONA_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('sydney')) {
+    hotspots = SYDNEY_HOTSPOTS;
+  } else if (cityName.toLowerCase().includes('san francisco')) {
+    hotspots = SANFRANCISCO_HOTSPOTS;
+  }
+  return hotspots;
+};
+
+/**
+ * Get traffic data using Google Maps API
+ */
+export const getGoogleTrafficData = async (cityName: string): Promise<TrafficData> => {
+  try {
+    const hotspots = getCityHotspots(cityName);
+    
+    // We'll use the Distance Matrix API to get real-time traffic data
+    // Creating origin-destination pairs for each hotspot
+    const origins = hotspots.map(spot => `${spot.coordinates.lat},${spot.coordinates.lon}`);
+    
+    // For simplicity, we're using all hotspots as both origins and destinations
+    // This will give us travel times between all hotspots
+    const destinations = [...origins];
+    
+    // Making the API request
+    const url = `https://maps.googleapis.com/maps/api/distancematrix/json?origins=${origins.join('|')}&destinations=${destinations.join('|')}&mode=driving&departure_time=now&key=${GOOGLE_MAPS_API_KEY}`;
+    
+    console.log(`Fetching Google Maps traffic data for ${cityName}...`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Google Maps API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.status !== 'OK') {
+      throw new Error(`Google Maps API returned status: ${data.status}`);
+    }
+    
+    // Process the response data
+    const hotspotsData = hotspots.map((hotspot, index) => {
+      const row = data.rows[index];
+      
+      // If we don't have data for this hotspot, return null values
+      if (!row || !row.elements || !row.elements[index] || row.elements[index].status !== 'OK') {
+        return {
+          id: hotspot.id,
+          name: hotspot.name,
+          congestion: null,
+          currentSpeed: null,
+          freeFlowSpeed: null,
+          delay: null,
+          coordinates: hotspot.coordinates
+        };
+      }
+      
+      // Get the element for the hotspot's own location (diagonal in the matrix)
+      const element = row.elements[index];
+      
+      // Calculate congestion based on duration_in_traffic vs duration
+      // If duration_in_traffic is significantly higher than duration, there's congestion
+      const durationInTraffic = element.duration_in_traffic?.value || element.duration.value;
+      const durationWithoutTraffic = element.duration.value;
+      
+      // Calculate congestion as a percentage increase in travel time
+      let congestion = 0;
+      if (durationWithoutTraffic > 0) {
+        congestion = Math.round(((durationInTraffic - durationWithoutTraffic) / durationWithoutTraffic) * 100);
+        // Cap congestion at 100%
+        congestion = Math.min(congestion, 100);
+      }
+      
+      // Calculate speeds based on distance and time
+      // Distance is in meters, duration is in seconds
+      const distance = element.distance.value; // meters
+      
+      // Calculate speed in km/h
+      let currentSpeed = 0;
+      let freeFlowSpeed = 0;
+      
+      if (durationInTraffic > 0) {
+        currentSpeed = Math.round((distance / durationInTraffic) * 3.6); // convert m/s to km/h
+      }
+      
+      if (durationWithoutTraffic > 0) {
+        freeFlowSpeed = Math.round((distance / durationWithoutTraffic) * 3.6); // convert m/s to km/h
+      }
+      
+      // Calculate delay in seconds
+      const delay = durationInTraffic - durationWithoutTraffic;
+      
+      return {
+        id: hotspot.id,
+        name: hotspot.name,
+        congestion: congestion,
+        currentSpeed: currentSpeed,
+        freeFlowSpeed: freeFlowSpeed,
+        delay: delay,
+        coordinates: hotspot.coordinates
+      };
+    });
+    
+    // Filter out hotspots with no valid data
+    const validHotspots = hotspotsData.filter(h => h.congestion !== null);
+    
+    // Calculate average values for the city
+    let avgCongestion = 0;
+    let avgCurrentSpeed = 0;
+    let avgFreeFlowSpeed = 0;
+    let avgDelay = 0;
+    
+    if (validHotspots.length > 0) {
+      avgCongestion = Math.round(validHotspots.reduce((sum, h) => sum + (h.congestion || 0), 0) / validHotspots.length);
+      avgCurrentSpeed = Math.round(validHotspots.reduce((sum, h) => sum + (h.currentSpeed || 0), 0) / validHotspots.length);
+      avgFreeFlowSpeed = Math.round(validHotspots.reduce((sum, h) => sum + (h.freeFlowSpeed || 0), 0) / validHotspots.length);
+      avgDelay = Math.round(validHotspots.reduce((sum, h) => sum + (h.delay || 0), 0) / validHotspots.length);
+    }
+    
+    // To get incidents, we would need to make additional API calls to Google Maps
+    // For now, we'll just return 0 incidents and road closures
+    
+    return {
+      congestion: avgCongestion,
+      delay: avgDelay,
+      freeFlowSpeed: avgFreeFlowSpeed,
+      currentSpeed: avgCurrentSpeed,
+      roadClosures: 0,
+      incidents: 0,
+      lastUpdated: new Date().toISOString(),
+      hotspots: hotspotsData,
+      incidentDetails: []
+    };
+    
+  } catch (error) {
+    console.error('Error fetching Google Maps traffic data:', error);
+    toast({
+      title: "Google Maps Traffic Error",
+      description: "Failed to fetch real-time traffic data from Google Maps. Falling back to TomTom API.",
+      variant: "destructive"
+    });
+    
+    // Fall back to TomTom API
+    return getTomTomTrafficData(cityName);
+  }
+};
+
+/**
+ * Get traffic data using TomTom API (original implementation)
+ */
+export const getTomTomTrafficData = async (cityName: string): Promise<TrafficData> => {
+  try {
+    // Get coordinates for the city's hotspots
+    let hotspots = DUBAI_HOTSPOTS;
+    if (cityName.toLowerCase().includes('new york')) {
+      hotspots = NEW_YORK_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('london')) {
+      hotspots = LONDON_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('tokyo')) {
+      hotspots = TOKYO_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('singapore')) {
+      hotspots = SINGAPORE_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('barcelona')) {
+      hotspots = BARCELONA_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('sydney')) {
+      hotspots = SYDNEY_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('san francisco')) {
+      hotspots = SANFRANCISCO_HOTSPOTS;
+    }
+    const hotspot = hotspots[0];
+    // Fetch traffic flow data from TomTom API
+    const flowUrl = `https://api.tomtom.com/traffic/services/4/flowSegmentData/relative/5/json?key=${TOMTOM_API_KEY}&point=${hotspot.coordinates.lat},${hotspot.coordinates.lon}`;
+    const incidentsUrl = `https://api.tomtom.com/traffic/services/4/incidentDetails/s3/${hotspot.coordinates.lat},${hotspot.coordinates.lon}/10.json?key=${TOMTOM_API_KEY}`;
+
+    const [flowResult, incidentsResult] = await Promise.allSettled([
+      fetchWithHeaders(flowUrl),
+      fetchWithHeaders(incidentsUrl)
+    ]);
+
+    let flowResponse = null;
+    let incidentsResponse = null;
+    if (flowResult.status === 'fulfilled') {
+      flowResponse = flowResult.value;
+      console.log('TomTom flow response:', flowResponse);
+    } else {
+      console.error('TomTom flow error:', flowResult.reason);
+    }
+    if (incidentsResult.status === 'fulfilled') {
+      incidentsResponse = incidentsResult.value;
+      console.log('TomTom incidents response:', incidentsResponse);
+    } else {
+      console.error('TomTom incidents error:', incidentsResult.reason);
+    }
+
+    if (!flowResponse && !incidentsResponse) {
+      throw new Error('Both TomTom flow and incidents requests failed');
+    }
+
+    // Calculate congestion based on current speed vs free flow speed
+    const congestion = flowResponse ? Math.round((1 - (flowResponse.flowSegmentData.currentSpeed / flowResponse.flowSegmentData.freeFlowSpeed)) * 100) : 0;
+
+    // Get hotspots data
+    const hotspotsData = await Promise.all(
+      hotspots.map(async (hotspot) => {
+        try {
+          const hotspotFlow = await fetchWithHeaders(
+            `https://api.tomtom.com/traffic/services/4/flowSegmentData/absolute/5/json?key=${TOMTOM_API_KEY}&point=${hotspot.coordinates.lat},${hotspot.coordinates.lon}`
+          );
+          console.log('Hotspot:', hotspot.name, 'API response:', hotspotFlow);
+          if (!hotspotFlow || !hotspotFlow.flowSegmentData) {
+            // No valid data returned
+            return {
+              id: hotspot.id,
+              name: hotspot.name,
+              congestion: null,
+              currentSpeed: null,
+              freeFlowSpeed: null,
+              delay: null,
+              coordinates: hotspot.coordinates
+            };
+          }
+          const hotspotCongestion = Math.round(
+            (1 - (hotspotFlow.flowSegmentData.currentSpeed / hotspotFlow.flowSegmentData.freeFlowSpeed)) * 100
+          );
+          return {
+            id: hotspot.id,
+            name: hotspot.name,
+            congestion: hotspotCongestion,
+            currentSpeed: Math.round(hotspotFlow.flowSegmentData.currentSpeed),
+            freeFlowSpeed: Math.round(hotspotFlow.flowSegmentData.freeFlowSpeed),
+            delay: Math.round(hotspotFlow.flowSegmentData.currentTravelTime - hotspotFlow.flowSegmentData.freeFlowTravelTime),
+            coordinates: hotspot.coordinates
+          };
+        } catch (e) {
+          console.error('TomTom hotspot flow error:', e);
+          return {
+            id: hotspot.id,
+            name: hotspot.name,
+            congestion: null,
+            currentSpeed: null,
+            freeFlowSpeed: null,
+            delay: null,
+            coordinates: hotspot.coordinates
+          };
+        }
+      })
+    );
+
+    return {
+      congestion,
+      delay: flowResponse ? Math.round(flowResponse.flowSegmentData.currentTravelTime - flowResponse.flowSegmentData.freeFlowTravelTime) : 0,
+      freeFlowSpeed: flowResponse ? Math.round(flowResponse.flowSegmentData.freeFlowSpeed) : 0,
+      currentSpeed: flowResponse ? Math.round(flowResponse.flowSegmentData.currentSpeed) : 0,
+      roadClosures: incidentsResponse && incidentsResponse.incidents ? incidentsResponse.incidents.filter((i: any) => i.type === 'ROAD_CLOSURE').length : 0,
+      incidents: incidentsResponse && incidentsResponse.incidents ? incidentsResponse.incidents.length : 0,
+      lastUpdated: new Date().toISOString(),
+      hotspots: hotspotsData,
+      incidentDetails: incidentsResponse && incidentsResponse.incidents ? incidentsResponse.incidents?.map((i: any) => ({
+        id: i.id,
+        type: i.type,
+        roadNumbers: i.roadNumbers,
+        from: i.from,
+        to: i.to,
+        description: i.description,
+        startTime: i.startTime,
+        endTime: i.endTime
+      })) : []
+    };
+  } catch (error) {
+    console.error('Error fetching traffic data:', error);
+    // Fallback to mock data if API fails
+    let fallbackHotspots = DUBAI_HOTSPOTS;
+    if (cityName.toLowerCase().includes('new york')) {
+      fallbackHotspots = NEW_YORK_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('london')) {
+      fallbackHotspots = LONDON_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('tokyo')) {
+      fallbackHotspots = TOKYO_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('singapore')) {
+      fallbackHotspots = SINGAPORE_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('barcelona')) {
+      fallbackHotspots = BARCELONA_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('sydney')) {
+      fallbackHotspots = SYDNEY_HOTSPOTS;
+    } else if (cityName.toLowerCase().includes('san francisco')) {
+      fallbackHotspots = SANFRANCISCO_HOTSPOTS;
+    }
+    toast({
+      title: "Traffic Data Error",
+      description: "Failed to fetch real-time traffic data. Using cached data.",
+      variant: "destructive"
+    });
+    return {
+      congestion: 50,
+      delay: 300,
+      freeFlowSpeed: 60,
+      currentSpeed: 30,
+      roadClosures: 0,
+      incidents: 2,
+      lastUpdated: new Date().toISOString(),
+      hotspots: fallbackHotspots.map(hotspot => ({
+        id: hotspot.id,
+        name: hotspot.name,
+        congestion: 65,
+        currentSpeed: 30,
+        freeFlowSpeed: 60,
+        delay: 300,
+        coordinates: hotspot.coordinates
+      })),
+      incidentDetails: []
+    };
+  }
+};
+
+export const initializeTrafficUpdates = (cityName: string, onUpdate: (data: TrafficData) => void) => {
+  let stopped = false;
+  let interval: NodeJS.Timeout | null = null;
+
+  const fetchAndUpdate = async () => {
+    try {
+      const data = await getTrafficData(cityName);
+      if (!stopped) onUpdate(data);
+    } catch (error) {
+      console.error('Error updating traffic data:', error);
+    }
+  };
+
+  // Show a toast to inform the user about which API we're using
+  toast({
+    title: `Traffic Data: ${USE_GOOGLE_MAPS_API ? 'Google Maps' : 'TomTom'} API`,
+    description: `Real-time traffic data will update every 30 seconds.`,
+  });
+
+  fetchAndUpdate(); // Initial fetch
+  interval = setInterval(fetchAndUpdate, 30000); // Poll every 30 seconds
+
+  return {
+    disconnect: () => {
+      stopped = true;
+      if (interval) clearInterval(interval);
+    }
+  };
+}; 

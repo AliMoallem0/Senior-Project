@@ -1,0 +1,68 @@
+{
+  "Barcelona": [
+    {
+      "id": "bcn-1",
+      "name": "Sagrada Familia",
+      "coordinates": {
+        "lat": 41.4036,
+        "lon": 2.1744
+      }
+    },
+    {
+      "id": "bcn-2",
+      "name": "La Rambla",
+      "coordinates": {
+        "lat": 41.3797,
+        "lon": 2.1746
+      }
+    },
+    {
+      "id": "bcn-3",
+      "name": "Plaça Catalunya",
+      "coordinates": {
+        "lat": 41.3874,
+        "lon": 2.1686
+      }
+    },
+    {
+      "id": "bcn-4",
+      "name": "Park Güell",
+      "coordinates": {
+        "lat": 41.4145,
+        "lon": 2.1527
+      }
+    },
+    {
+      "id": "bcn-5",
+      "name": "Barceloneta Beach",
+      "coordinates": {
+        "lat": 41.3807,
+        "lon": 2.1892
+      }
+    },
+    {
+      "id": "bcn-6",
+      "name": "Camp Nou",
+      "coordinates": {
+        "lat": 41.3809,
+        "lon": 2.1228
+      }
+    },
+    {
+      "id": "bcn-7",
+      "name": "Montjuïc",
+      "coordinates": {
+        "lat": 41.3641,
+        "lon": 2.1587
+      }
+    },
+    {
+      "id": "bcn-8",
+      "name": "Gothic Quarter",
+      "coordinates": {
+        "lat": 41.3833,
+        "lon": 2.1777
+      }
+    }
+  ]
+}

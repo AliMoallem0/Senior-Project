@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cesium Token Test</title>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body>
+    <h1>Cesium Token Test</h1>
+    <div id="results"></div>
+    <script>
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI2NzNmZGFhOC04MWE3LTQ4OWItOWJkNi0wYTBjM2QyNTU2ZjkiLCJpZCI6Mjk4OTEzLCJpYXQiOjE3NDYxNTQxMDR9.a-UKtptQbSQH-7uaMH8YMU8ZQbVO1lunFvcpJ5Q_zio';
+        
+        async function testToken() {
+            const resultsDiv = document.getElementById('results');
+            
+            try {
+                // Test 1: Get user profile
+                resultsDiv.innerHTML += '<h2>Testing User Profile...</h2>';
+                const profileResponse = await axios.get('https://api.cesium.com/v1/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                resultsDiv.innerHTML += `<pre>${JSON.stringify(profileResponse.data, null, 2)}</pre>`;
+
+                // Test 2: List available assets
+                resultsDiv.innerHTML += '<h2>Testing Asset List...</h2>';
+                const assetsResponse = await axios.get('https://api.cesium.com/v1/assets', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                resultsDiv.innerHTML += `<pre>${JSON.stringify(assetsResponse.data, null, 2)}</pre>`;
+
+            } catch (error) {
+                resultsDiv.innerHTML += `<h2>Error</h2><pre>${error.response ? JSON.stringify(error.response.data, null, 2) : error.message}</pre>`;
+            }
+        }
+
+        testToken();
+    </script>
+</body>
+</html> 

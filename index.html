@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OSAT - Optimal Solution for Analytics and Tracking</title>
+    <meta name="description" content="OSAT - Advanced urban planning and simulation platform powered by AI" />
+    <meta name="author" content="OSAT" />
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/OSAT-image.png" />
+    <link rel="apple-touch-icon" href="/OSAT-image.png" />
+    
+    <!-- Open Graph / Social Media -->
+    <meta property="og:title" content="OSAT - Urban Simulation AI" />
+    <meta property="og:description" content="Advanced urban planning and simulation platform powered by AI" />
+    <meta property="og:image" content="/OSAT-image.png" />
+    <meta property="og:url" content="https://osat.ai" />
+    <meta property="og:type" content="website" />
+    
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="OSAT - Urban Simulation AI" />
+    <meta name="twitter:description" content="Advanced urban planning and simulation platform powered by AI" />
+    <meta name="twitter:image" content="/OSAT-image.png" />
+    
+    <!-- MapLibre CSS -->
+    <link href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+
+    <!-- Google Maps with Places library and WebGL -->
+    <script async src="https://maps.googleapis.com/maps/api/js?key=%VITE_GOOGLE_MAPS_API_KEY%&libraries=places&v=beta"></script>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
+    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
